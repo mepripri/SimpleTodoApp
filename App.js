@@ -21,8 +21,8 @@ export default function App() {
 
 	const toggleTaskCompletion = taskId => {
     setTasks(
-      tasks.map(task =>
-        task.id === taskId ? { ...task, completed: !task.completed } : task
+      tasks.map((item) =>
+        item.id === taskId ? { ...item, completed: !item.completed } : item
       )
     );
   };
@@ -70,7 +70,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-	completedTaskText: {
+  completedTaskText: {
     textDecorationLine: 'line-through',
     color: '#888',
   },
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#ddd',
     borderBottomWidth: 1,
   },
-	checkbox: {
+  checkbox: {
     fontSize: 20,
     marginRight: 10,
   },
