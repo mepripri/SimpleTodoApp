@@ -14,9 +14,17 @@ export default function App() {
 
   const addTask = () => {
     if (task.trim()) {
-      setTasks([...tasks, {id: Date.now().toString(), text: task}]);
+      setTasks([...tasks, {id: Date.now().toString(), text: task, completed: false }]);
       setTask('');
     }
+  };
+
+	const toggleTaskCompletion = taskId => {
+    setTasks(
+      tasks.map(task =>
+        task.id === taskId ? { ...task, completed: !task.completed } : task
+      )
+    );
   };
 
   const deleteTask = taskId => {
@@ -41,8 +49,15 @@ export default function App() {
         data={tasks}
         renderItem={({item}) => (
           <View style={styles.taskContainer}>
-            <Text style={styles.taskText}>{item.text}</Text>
-
+            <TouchableOpacity onPress={() => toggleTaskCompletion(item.id)}>
+              <Text style={styles.checkbox}>
+                {item.completed ? '✅' : '◻️'}
+              </Text>
+            </TouchableOpacity>
+            <Text  style={[
+                styles.taskText,
+                item.completed && styles.completedTaskText,
+              ]}>{item.text}</Text>
             <TouchableOpacity onPress={() => deleteTask(item.id)}>
               <Text style={styles.deleteButton}>X</Text>
             </TouchableOpacity>
@@ -55,6 +70,10 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+	completedTaskText: {
+    textDecorationLine: 'line-through',
+    color: '#888',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -102,6 +121,10 @@ const styles = StyleSheet.create({
     padding: 10,
     borderBottomColor: '#ddd',
     borderBottomWidth: 1,
+  },
+	checkbox: {
+    fontSize: 20,
+    marginRight: 10,
   },
   taskText: {
     fontSize: 16,
