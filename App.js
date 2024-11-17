@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -6,23 +6,56 @@ import {
   View,
   FlatList,
   TouchableOpacity,
-} from 'react-native';
+  Animated,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function App() {
-  const [task, setTask] = useState('');
+  const [task, setTask] = useState("");
   const [tasks, setTasks] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState(null);
+
+  const saveTasksToStorage = async (items) => {
+    try {
+      const jsonValue = JSON.stringify(items);
+      await AsyncStorage.setItem("@tasks", jsonValue);
+    } catch (e) {
+      console.error("Error saving tasks:", e);
+    }
+  };
+
+  const loadTasksFromStorage = async () => {
+    try {
+      const jsonValue = await AsyncStorage.getItem("@tasks");
+      return jsonValue != null ? JSON.parse(jsonValue) : [];
+    } catch (e) {
+      console.error("Error loading tasks:", e);
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      const storedTasks = await loadTasksFromStorage();
+      setTasks(
+        storedTasks.map((task) => ({
+          ...task,
+          fadeAnim: new Animated.Value(1),
+        }))
+      );
+    };
+    fetchTasks();
+  }, []);
+
+  useEffect(() => {
+    saveTasksToStorage(tasks.map(({ fadeAnim, ...rest }) => rest));
+  }, [tasks]);
 
   const editTask = (item) => {
     setTask(item.text);
     setIsEditing(true);
     setCurrentTaskId(item.id);
-    setTasks(
-      tasks.map((items) =>
-        items.id === item.id ? { ...items, completed: false } : items
-      )
-    );
   };
 
   const updateTask = () => {
@@ -31,28 +64,48 @@ export default function App() {
         item.id === currentTaskId ? { ...item, text: task } : item
       )
     );
-    setTask('');
+    setTask("");
     setIsEditing(false);
     setCurrentTaskId(null);
   };
 
   const addTask = () => {
     if (task.trim()) {
-      setTasks([...tasks, {id: Date.now().toString(), text: task, completed: false }]);
-      setTask('');
+      const newTask = {
+        id: Date.now().toString(),
+        text: task,
+        completed: false,
+        fadeAnim: new Animated.Value(0), // Start from invisible
+      };
+      setTasks([...tasks, newTask]);
+      setTask("");
+      Animated.timing(newTask.fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
     }
   };
 
-	const toggleTaskCompletion = taskId => {
+  const deleteTask = (taskId) => {
+    const taskToDelete = tasks.find((item) => item.id === taskId);
+    if (taskToDelete) {
+      Animated.timing(taskToDelete.fadeAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => {
+        setTasks(tasks.filter((item) => item.id !== taskId));
+      });
+    }
+  };
+
+  const toggleTaskCompletion = (taskId) => {
     setTasks(
       tasks.map((item) =>
         item.id === taskId ? { ...item, completed: !item.completed } : item
       )
     );
-  };
-
-  const deleteTask = taskId => {
-    setTasks(tasks.filter(item => item.id !== taskId));
   };
 
   return (
@@ -63,25 +116,34 @@ export default function App() {
           style={styles.input}
           placeholder="Add a new task"
           value={task}
-          onChangeText={text => setTask(text)}
+          onChangeText={(text) => setTask(text)}
         />
-        <TouchableOpacity style={styles.addButton} onPress={isEditing ? updateTask : addTask}>
-          <Text style={styles.addButtonText}>{isEditing ? '✓' : '+'}</Text>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={isEditing ? updateTask : addTask}
+        >
+          <Text style={styles.addButtonText}>{isEditing ? "✓" : "+"}</Text>
         </TouchableOpacity>
       </View>
       <FlatList
         data={tasks}
-        renderItem={({item}) => (
-          <View style={styles.taskContainer}>
+        renderItem={({ item }) => (
+          <Animated.View
+            style={[styles.taskContainer, { opacity: item.fadeAnim }]}
+          >
             <TouchableOpacity onPress={() => toggleTaskCompletion(item.id)}>
               <Text style={styles.checkbox}>
-                {item.completed ? '✅' : '◻️'}
+                {item.completed ? "✅" : "◻️"}
               </Text>
             </TouchableOpacity>
-            <Text  style={[
+            <Text
+              style={[
                 styles.taskText,
                 item.completed && styles.completedTaskText,
-              ]}>{item.text}</Text>
+              ]}
+            >
+              {item.text}
+            </Text>
             <TouchableOpacity
               onPress={() => editTask(item)}
               style={styles.editButtonContainer}
@@ -94,9 +156,9 @@ export default function App() {
             >
               <Text style={styles.deleteButtonText}>Delete</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         )}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
       />
     </View>
   );
@@ -104,55 +166,55 @@ export default function App() {
 
 const styles = StyleSheet.create({
   completedTaskText: {
-    textDecorationLine: 'line-through',
-    color: '#888',
+    textDecorationLine: "line-through",
+    color: "#888",
   },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingTop: 50,
     paddingHorizontal: 20,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 20,
   },
   inputContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
   },
   input: {
     flex: 1,
     height: 40,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderWidth: 1,
     paddingHorizontal: 10,
     borderRadius: 5,
   },
   addButton: {
-    backgroundColor: '#5C5CFF',
+    backgroundColor: "#5C5CFF",
     height: 40,
     width: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 20,
     marginLeft: 10,
   },
   addButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   taskContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 10,
-    borderBottomColor: '#ddd',
+    borderBottomColor: "#ddd",
     borderBottomWidth: 1,
   },
   checkbox: {
@@ -160,33 +222,29 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   taskText: {
-	flex: 1,
+    flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
-  deleteButton: {
-    color: '#FF5C5C',
-    fontWeight: 'bold',
-    fontSize: 18,
-  }, editButtonContainer: {
+  editButtonContainer: {
     marginRight: 10,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: '#5C5CFF',
+    backgroundColor: "#5C5CFF",
     borderRadius: 5,
   },
   editButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 14,
   },
   deleteButtonContainer: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: '#FF5C5C',
+    backgroundColor: "#FF5C5C",
     borderRadius: 5,
   },
   deleteButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 14,
   },
 });
